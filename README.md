@@ -1,7 +1,7 @@
 # Deep Docking – Accelerate Virtual Screening by 50X 
 
 
-Deep docking (DD) is a deep learning-based tool developed to accelerate docking-based virtual screening. In this repository you can find all what you need to screen extra-large chemical libraries such as ZINC15 database (containing >1.3 billion molecules) using your favourite docking program. For further information please refer to our [paper](https://pubs.acs.org/doi/10.1021/acscentsci.0c00229). The dataset used for building the models reported in the paper can be found at this [link](https://drive.google.com/file/d/1w86NqUk7brjDIGCxD65tFLNeQ5IgLeHZ/view?usp=sharing).
+Deep docking (DD) is a deep learning-based tool developed to accelerate docking-based virtual screening. In this repository you can find all what you need to screen ultra-large chemical libraries such as ZINC15 database (containing >1.3 billion molecules) using your favourite docking program. For further information please refer to our [paper](https://pubs.acs.org/doi/10.1021/acscentsci.0c00229). The dataset used for building the models reported in the paper can be found at this [link](https://drive.google.com/file/d/1w86NqUk7brjDIGCxD65tFLNeQ5IgLeHZ/view?usp=sharing).
 
 
 About this repository
@@ -77,17 +77,27 @@ Run DD
 
 **Create the project**
 
-Before starting DD, create a project folder and create a text file named "logs.txt"within it, following this [format](temp/logs.txt). 
+Before starting DD, create a project folder and create a text file named "logs.txt" within it, following this [format](temp/logs.txt). Lines in the logs file are:
+
+| Line number | Value | Explanation |
+|:---|:---|:---|
+| 1 | path_project_folder | Path to the project folder |              
+| 2 | project_folder | Name of project folder |                             
+| 3 | path_grid_file/grid_file | Path and name of docking grid file; write a random line if you do not use a grid |                  
+| 4 | path_morgan_folder/morgan_folder | Path to files containing the previously calculated QSAR descriptors (Morgan fingerprints)|           
+| 5 | path_smile_folder/smile_folder | Path to files containing SMILES of molecules |             
+| 6 | path_3dsdf_folder/3dsdf_folder | Path to precalculated 3D sdf conformations of molecules; write a random line if you do not have them |            
+| 7 | number_of_molecules_to_sample | Number of molecules sampled at each iteration. In the first iteration, this number of molecules will be split in three to form initial training, validation and testing, from the second iteration it will be the number of molecules added to the training set |
 
 DD pipeline is divided in 5 sequential phases to be repeated over multiple iterations until a desired number of final predicted virtual hits is reached:
 
 **Phase 1.** *Random sampling of molecules*
-1. The number of molecules to be sampled is defined in the logs.txt file and can be modified any time during the runs (for example, to keep constant the number of molecules added to the training set between iteration 1 and the other iterations). Choose the number according with the computational resources that are available (for the paper we sampled 3 million molecules for iteration 1 (so that can be divided into 1 million each for training, validation and test) and 1 million from iteration 2 onwards, all for training), as these molecules will be docked later on. During iteration 1 this sample of molecules will be splitted in three to build initial training, validation and test set. From iteration 2 it will correspond to the number of molecules that are used for augmenting the training set (so dont worry about the naming convention from iteration 2 onwards).
+1. The number of molecules to be sampled is defined in the logs.txt file and can be modified any time during the runs (for example, to keep constant the number of molecules added to the training set between iteration 1 and the other iterations). Choose the number according with the computational resources that are available (for the paper we sampled 3 million molecules for iteration 1 (so that can be divided into 1 million each for training, validation and test) and 1 million from iteration 2 onwards, all for training), as these molecules will be docked later on. During iteration 1 this sample of molecules will be splitted in three to build initial training, validation and test set. From iteration 2 it will correspond to the number of molecules that are used for augmenting the training set (so do not worry about the naming convention from iteration 2 onwards).
 2. Run phase 1
     
           bash pd_python/phase_1.sh iteration_no n_cpus path_to_log_file path_tensorflow_venv
     
-3. This will generate three *smi* files in a *smile* folder. Note that the name of these files will always start with train, valid and test, even if they will all correspond to training set augmentation after iteration 1.
+3. This step will create few folders and files inside the *iteration* folder relative to your current iteration. First, it will create three *txt* files containing the names of molecules that were randomly sampled. Note that the name of these files will always start with train, valid and test, even after iteration 1 (when molecules are added only to the training set). Then, a *morgan* folder will be generated, containing three *csv* files with Morgan fingerprints for the sampled molecules. Finally, phase 1 will generate three *smi* files in a *smile* folder, with the SMILES of the sampled molecules, to be used as input for docking (phase 2). 
 
 **Phase 2.** *Prepare molecules for docking*\
 Convert SMILES from phase 1 to 3D sdf format for docking (if it is not done internally by the docking software). This step includes assigning tautomer and protonation states and generating conformers, and can be done with different free (e.g. [openbabel](https://openbabel.org/docs/dev/Command-line_tools/babel.html)) or licensed programs (e.g. [omega](https://www.eyesopen.com/omega)).
@@ -101,7 +111,7 @@ Convert SMILES from phase 1 to 3D sdf format for docking (if it is not done inte
 4. Put these files in the *iteration_no* folder
 
 **Phase 4.** *Neural network training*
-1. Training neural network models with different sets of hyperparameters (currently 12 hyperparameters are used, in future this will be a parameter that the user can choose). Activate the tensorflow environment and run
+1. Training neural network models with different sets of hyperparameters (12 combinations of hyperparameter values will be evaluated). Activate the tensorflow environment and run
      
           python simple_job_models_noslurm.py -n_it iteration_no -mdd path_morgan_folder/morgan_folder -time training_time -protein project_folder_name -file_path path_to_project_folder -pdfp path_to_pd_python/pd_python -tfp path_tensorflow_venv -min_last minimum_molecules_at_last_iteration
 
